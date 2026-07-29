@@ -50,6 +50,25 @@ describe("grandTotal", () => {
 	it("rounds a half-paisa up the way the decimal reads", () => {
 		// 1.005 * 100 is 100.49999999999999 in IEEE-754; naive scaling gives 1.
 		expect(grandTotal([{ id: "a", price: 1.005, qty: 1 }], 0, 0)).toBe(1.01);
+		expect(grandTotal([{ id: "a", price: 2.675, qty: 1 }], 0, 0)).toBe(2.68);
+	});
+
+	it("leaves a genuinely-below-half figure alone", () => {
+		// The ULP nudge must not be wide enough to swallow a real sub-paise gap.
+		expect(grandTotal([{ id: "a", price: 1.0049999, qty: 1 }], 0, 0)).toBe(1);
+	});
+
+	it("keeps every paise on totals past the 12-significant-digit mark", () => {
+		// Regression: snapping the scaled value to 12 significant digits used to
+		// truncate real paise here — 12345678901.23 came back as ...901.20.
+		expect(grandTotal([{ id: "a", price: 12345678901.23, qty: 1 }], 0, 0)).toBe(12345678901.23);
+		expect(grandTotal([{ id: "a", price: 99999999999.99, qty: 1 }], 0, 0)).toBe(99999999999.99);
+		expect(grandTotal([{ id: "a", price: 1234567890.12, qty: 1 }], 0, 0)).toBe(1234567890.12);
+	});
+
+	it("keeps large totals intact through discount and tax", () => {
+		// 20000000000 -> 10% off -> 18000000000 -> 18% tax -> 21240000000.
+		expect(grandTotal([{ id: "a", price: 10000000000, qty: 2 }], 10, 18)).toBe(21240000000);
 	});
 });
 
@@ -66,6 +85,11 @@ describe("formatMoney", () => {
 
 	it("groups every three digits", () => {
 		expect(formatMoney(1000000)).toBe("₹1,000,000.00");
+	});
+
+	it("does not drop paise on a large amount", () => {
+		// Same regression as grandTotal — formatMoney shares roundToPaise.
+		expect(formatMoney(12345678901.23)).toBe("₹12,345,678,901.23");
 	});
 
 	it("does not render negative zero", () => {

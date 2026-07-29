@@ -18,17 +18,28 @@ import { applyDiscount, subtotal, type Item } from "./cart";
  *
  * 2. Binary representation. `Math.round(x * 100) / 100` on its own gets 1.005
  *    wrong: 1.005 * 100 is 100.49999999999999 in IEEE-754, so it rounds down
- *    to 1.00 when a person plainly meant 1.01. Snapping the scaled value to 12
- *    significant digits first discards that trailing ULP noise while keeping
- *    every digit that matters at money magnitudes — a double carries 15-17 —
- *    so the value rounds the way the decimal arithmetic reads.
+ *    to 1.00 when a person plainly meant 1.01. The fix is to widen the scaled
+ *    value by a few ULPs before rounding, so a figure sitting a representation
+ *    error below the half-paisa boundary lands on the side the decimal reads.
+ *
+ *    The nudge is RELATIVE (a multiple of the value itself) rather than a fixed
+ *    number of significant digits. An earlier version snapped to 12 significant
+ *    digits, which quietly truncated real paise on totals past ~1e10 rupees —
+ *    12345678901.23 came back as 12345678901.20. A relative nudge scales with
+ *    the magnitude, so it corrects representation error at any size without
+ *    ever discarding a digit that was actually there.
+ *
+ *    Four ULPs is the tolerance for drift accumulated across the pipeline. It
+ *    is far smaller than any real sub-paise gap — 1.0049999 still rounds down —
+ *    so it only ever flips values already inside the noise band.
  *
  * The real fix for money is integer minor units end to end, but cart.ts hands
  * back floats, and reusing it was the requirement. This keeps the float path
  * honest instead.
  */
 function roundToPaise(amount: number): number {
-	return Math.round(Number((amount * 100).toPrecision(12))) / 100;
+	const scaled = amount * 100;
+	return Math.round(scaled * (1 + 4 * Number.EPSILON)) / 100;
 }
 
 /**
