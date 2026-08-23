@@ -39,6 +39,12 @@ describe("shipping (demo)", () => {
 		expect(() => shippingCost(items, undefined as unknown as Zone)).toThrow(RangeError);
 	});
 
+	it("rejects inherited Object property names as unknown zones", () => {
+		const items = [{ id: "a", price: 10, qty: 1 }];
+		expect(() => shippingCost(items, "toString" as Zone)).toThrow(RangeError);
+		expect(() => shippingCost(items, "constructor" as Zone)).toThrow(RangeError);
+	});
+
 	it("validates the zone even when the cart is empty", () => {
 		// A malformed zone should not lie dormant until someone adds an item.
 		expect(() => shippingCost([], "bogus" as Zone)).toThrow(RangeError);

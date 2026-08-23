@@ -45,10 +45,10 @@ export function itemCount(items: Item[]): number {
  * lying dormant until someone adds an item.
  */
 export function shippingCost(items: Item[], zone: Zone): number {
-	const base = RATES[zone];
-	if (base === undefined) {
+	if (!Object.prototype.hasOwnProperty.call(RATES, zone)) {
 		throw new RangeError(`Unknown shipping zone: ${JSON.stringify(zone)}`);
 	}
+	const base = RATES[zone];
 
 	// Nothing to ship, nothing to charge — the flat rate is for moving goods,
 	// and an empty cart has none. Without this the base rate is billed anyway.
